@@ -48,7 +48,7 @@ CLIS = {
         "cmd": ["codex", "exec", "--skip-git-repo-check", "--enable", "web_search_request"],
     },
     "Gemini": {         # Response B
-        "cmd": ["gemini"],
+        "cmd": ["gemini", "--allowed-mcp-server-names", ""],  # 禁用 MCP，使用内置 Google Search
     },
     "Claude Code": {    # Response C
         # 使用 script 命令模拟 PTY，解决 PM2 环境下 Claude CLI 挂起的问题
@@ -63,7 +63,7 @@ CHAIRMAN_CMD = ["claude", "-p", "--permission-mode", "bypassPermissions", "--no-
 CHAIRMAN_USE_SCRIPT = True  # 在 PM2 环境下需要用 script 模拟 PTY
 
 
-def query_cli(name: str, config: dict, prompt: str, timeout: int = 360) -> CliResult:
+def query_cli(name: str, config: dict, prompt: str, timeout: int = 300) -> CliResult:
     """调用单个 CLI 并返回结果"""
     try:
         import shlex
@@ -113,7 +113,7 @@ def query_cli(name: str, config: dict, prompt: str, timeout: int = 360) -> CliRe
         return CliResult(name=name, error=str(e))
 
 
-def query_chairman(prompt: str, timeout: int = 360) -> str:
+def query_chairman(prompt: str, timeout: int = 300) -> str:
     """调用 Chairman (Claude Code CLI) 生成最终答案"""
     try:
         import shlex
@@ -391,7 +391,7 @@ Response C 提供了最全面的答案...
     review_results: list[ReviewResult] = []
 
     def do_review(reviewer_name: str) -> ReviewResult:
-        result = query_cli(reviewer_name, CLIS[reviewer_name], review_prompt, timeout=360)
+        result = query_cli(reviewer_name, CLIS[reviewer_name], review_prompt, timeout=300)
         if result.success:
             parsed = parse_ranking_from_text(result.output, valid_labels)
             return ReviewResult(
@@ -515,7 +515,7 @@ def stage3_final_response(
 
 最终答案："""
 
-    final_answer = query_chairman(chairman_prompt, timeout=360)
+    final_answer = query_chairman(chairman_prompt, timeout=300)
 
     if verbose:
         out(final_answer)

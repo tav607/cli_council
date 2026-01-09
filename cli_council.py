@@ -48,7 +48,7 @@ CLIS = {
         "cmd": ["codex", "exec", "--skip-git-repo-check", "--enable", "web_search_request"],
     },
     "Gemini": {         # Response B
-        "cmd": ["gemini", "--allowed-mcp-server-names", ""],  # 禁用 MCP，使用内置 Google Search
+        "cmd": ["gemini"],  # MCP 已在 ~/.gemini/settings.json 中禁用
     },
     "Claude Code": {    # Response C
         # 使用 script 命令模拟 PTY，解决 PM2 环境下 Claude CLI 挂起的问题
@@ -101,7 +101,11 @@ def query_cli(name: str, config: dict, prompt: str, timeout: int = 300) -> CliRe
             )
         output = result.stdout.strip() or result.stderr.strip()
         # 清理 ANSI 转义序列（script 命令模拟 PTY 时会产生这些控制字符）
-        output = re.sub(r'\x1b\[[0-9;?]*[a-zA-Z]', '', output)
+        # 扩展正则以匹配更多 ANSI 序列格式，包括 \x1b[<u (restore cursor) 等
+        output = re.sub(r'\x1b\[[0-9;?<>=]*[a-zA-Z]', '', output)
+        output = re.sub(r'\x1b[PX^_].*?\x1b\\', '', output)  # 清理 DCS, SOS, PM, APC 序列
+        output = re.sub(r'\x1b\][^\x07]*\x07', '', output)   # 清理 OSC 序列
+        output = re.sub(r'\x1b[NO][\x20-\x7f]', '', output)  # 清理 SS2, SS3 序列
         # 清理其他常见控制字符
         output = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', output)
         return CliResult(name=name, output=output)
@@ -146,8 +150,11 @@ def query_chairman(prompt: str, timeout: int = 300) -> str:
                 start_new_session=True,
             )
         output = result.stdout.strip() or result.stderr.strip()
-        # 清理 ANSI 转义序列
-        output = re.sub(r'\x1b\[[0-9;?]*[a-zA-Z]', '', output)
+        # 清理 ANSI 转义序列（与 query_cli 保持一致）
+        output = re.sub(r'\x1b\[[0-9;?<>=]*[a-zA-Z]', '', output)
+        output = re.sub(r'\x1b[PX^_].*?\x1b\\', '', output)  # 清理 DCS, SOS, PM, APC 序列
+        output = re.sub(r'\x1b\][^\x07]*\x07', '', output)   # 清理 OSC 序列
+        output = re.sub(r'\x1b[NO][\x20-\x7f]', '', output)  # 清理 SS2, SS3 序列
         output = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', output)
         return output
     except subprocess.TimeoutExpired:

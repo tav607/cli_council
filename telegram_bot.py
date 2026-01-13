@@ -372,8 +372,15 @@ async def run_council_quiet(update: Update, question: str) -> None:
     )
 
     successful = [name for name in CLIS.keys() if name in results and results[name].success]
+    failed = [(name, results[name].error) for name in CLIS.keys() if name in results and not results[name].success]
+
+    # 记录日志
+    logger.info(f"Stage 1 完成: 成功={successful}, 失败={failed}")
+
     if len(successful) < 2:
-        await processing_msg.edit_text("❌ 有效回答不足，无法继续")
+        # 显示详细的失败信息
+        error_details = "\n".join([f"• {name}: {err[:100]}" for name, err in failed]) if failed else "未知错误"
+        await processing_msg.edit_text(f"❌ 有效回答不足，无法继续\n\n失败详情:\n{error_details}")
         return
 
     # Stage 2

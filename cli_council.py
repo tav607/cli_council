@@ -108,6 +108,23 @@ def query_cli(name: str, config: dict, prompt: str, timeout: int = 300) -> CliRe
         output = re.sub(r'\x1b[NO][\x20-\x7f]', '', output)  # 清理 SS2, SS3 序列
         # 清理其他常见控制字符
         output = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', output)
+
+        # 检查返回码和输出内容是否包含错误
+        if result.returncode != 0:
+            return CliResult(name=name, error=f"退出码 {result.returncode}: {output[:200]}")
+
+        # 检测常见的 API 错误模式（这些错误可能返回 0 退出码）
+        error_patterns = [
+            r'^API Error:',
+            r'^Error:.*connection',
+            r'^error:.*API',
+            r'^Connection error',
+            r'^Request failed',
+        ]
+        for pattern in error_patterns:
+            if re.search(pattern, output, re.IGNORECASE | re.MULTILINE):
+                return CliResult(name=name, error=f"API 错误: {output[:200]}")
+
         return CliResult(name=name, output=output)
     except subprocess.TimeoutExpired:
         return CliResult(name=name, error="超时")
@@ -156,6 +173,21 @@ def query_chairman(prompt: str, timeout: int = 300) -> str:
         output = re.sub(r'\x1b\][^\x07]*\x07', '', output)   # 清理 OSC 序列
         output = re.sub(r'\x1b[NO][\x20-\x7f]', '', output)  # 清理 SS2, SS3 序列
         output = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', output)
+
+        # 检查返回码
+        if result.returncode != 0:
+            return f"[Chairman 错误: 退出码 {result.returncode}]"
+
+        # 检测 API 错误模式
+        error_patterns = [
+            r'^API Error:',
+            r'^Error:.*connection',
+            r'^Connection error',
+        ]
+        for pattern in error_patterns:
+            if re.search(pattern, output, re.IGNORECASE | re.MULTILINE):
+                return f"[Chairman API 错误: {output[:200]}]"
+
         return output
     except subprocess.TimeoutExpired:
         return "[Chairman 超时]"
